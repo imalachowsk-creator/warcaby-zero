@@ -243,36 +243,38 @@ class MCTS:
         return stats
 
 
-def run_searches(trees: list[MCTS], simulations: int) -> None:
-    """Run ``simulations`` simulations in every tree.
+def run_searches(trees: list[MCTS], simulations: int | list[int]) -> None:
+    """Run ``simulations`` simulations in every tree (one number, or one per tree).
 
     The trees advance together: each selects a leaf, all leaves that belong to
     the same evaluator go to it in one batch, each tree backs up its answer.
     A GPU evaluates a batch of 64 positions hardly slower than one, so this is
     what makes playing many games at once cheap.
     """
-    remaining = {id(tree): simulations for tree in trees}
-    active = list(trees)
+    if isinstance(simulations, int):
+        simulations = [simulations] * len(trees)
+    active = [[tree, budget] for tree, budget in zip(trees, simulations)]
     while active:
         waiting: dict[int, list[MCTS]] = defaultdict(list)
         evaluators = {}
         still_active = []
-        for tree in active:
-            budget = remaining[id(tree)]
+        for entry in active:
+            tree, budget = entry
             leaf = None
             while budget > 0 and leaf is None:
                 leaf = tree.select()
                 budget -= 1
-            remaining[id(tree)] = budget
+            entry[1] = budget
             if leaf is not None:
                 waiting[id(tree.evaluator)].append(tree)
                 evaluators[id(tree.evaluator)] = tree.evaluator
-                still_active.append(tree)
+                if budget > 0:
+                    still_active.append(entry)
         for key, group in waiting.items():
             priors, values = evaluators[key].evaluate([tree._pending[0].state for tree in group])
             for tree, tree_priors, value in zip(group, priors, values):
                 tree.backup(tree_priors, value)
-        active = [tree for tree in still_active if remaining[id(tree)] > 0]
+        active = still_active
 
 
 class MCTSPlayer:

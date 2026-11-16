@@ -16,6 +16,7 @@ trainable.
 
 from __future__ import annotations
 
+import io
 from dataclasses import asdict, dataclass
 
 import torch
@@ -116,6 +117,17 @@ class PolicyValueNet(nn.Module):
         )
         net.load_state_dict(exported["weights"])
         return net
+
+
+def export_to_bytes(exported: dict) -> bytes:
+    """An exported network as bytes, for handing to another process."""
+    buffer = io.BytesIO()
+    torch.save(exported, buffer)
+    return buffer.getvalue()
+
+
+def export_from_bytes(data: bytes) -> dict:
+    return torch.load(io.BytesIO(data), map_location="cpu", weights_only=True)
 
 
 def pick_device(preferred: str | None = None) -> torch.device:
