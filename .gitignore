@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+.ipynb_checkpoints/
+
+# training artefacts (checkpoints, replay buffers, TensorBoard logs)
+runs/
+# local results of games played in the app
+data/
