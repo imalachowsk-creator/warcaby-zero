@@ -11,3 +11,4 @@ runs/
 # local results of games played in the app
 data/
 *.log
+.claude/

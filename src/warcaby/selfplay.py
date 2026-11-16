@@ -299,7 +299,10 @@ class PlayPool:
     ) -> PlayResult:
         started = time.perf_counter()
         workers = max(1, self.config.workers) if self._pool else 1
-        workers = min(workers, games)
+        # A worker with only a handful of games sends tiny batches to the
+        # network, which wastes the GPU. Small jobs (arena, evaluation) are
+        # therefore given to fewer workers.
+        workers = max(1, min(workers, games // max(1, self.config.parallel_games // 2)))
         shares = [games // workers + (index < games % workers) for index in range(workers)]
         tasks = [
             {

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>warcaby-zero</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>warcaby-zero</h1>
+  <p id="model-label" class="muted"></p>
+</header>
+
+<main>
+  <section class="board-column">
+    <div class="seat" id="seat-top"></div>
+    <div class="board-wrap">
+      <svg id="board" role="img" aria-label="Plansza"></svg>
+    </div>
+    <div class="seat" id="seat-bottom"></div>
+    <div id="chooser" class="chooser" hidden></div>
+  </section>
+
+  <section class="side">
+    <div class="card" id="status-card">
+      <div id="status" class="status" aria-live="polite">Wczytywanie…</div>
+      <div class="buttons">
+        <button id="new-game" class="primary">Nowa gra</button>
+        <button id="resign">Poddaj partię</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Jak AI ocenia pozycję</h2>
+        <label class="toggle"><input type="checkbox" id="show-analysis" checked> pokazuj</label>
+      </div>
+      <div id="analysis-body">
+        <div class="evalbar" id="evalbar" aria-hidden="true"><div id="evalbar-white"></div></div>
+        <p id="eval-text" class="muted">—</p>
+        <table id="moves-table">
+          <thead>
+            <tr>
+              <th>Ruch</th>
+              <th title="Pierwsze wrażenie sieci, zanim cokolwiek policzy">Sieć</th>
+              <th title="Jaką część symulacji MCTS poświęcił temu ruchowi">Przeszukiwanie</th>
+              <th title="Oczekiwany wynik strony na ruchu po tym posunięciu">Szansa</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <p class="hint">
+          <b>Sieć</b>: pierwsze wrażenie sieci neuronowej. <b>Przeszukiwanie</b>: ile symulacji
+          MCTS poświęcił ruchowi, czyli jego werdykt po sprawdzeniu. <b>Szansa</b>: oczekiwany
+          wynik strony na ruchu (100% = pewna wygrana). Najedź na wiersz, żeby zobaczyć ruch.
+        </p>
+      </div>
+    </div>
+
+    <div class="card" id="ai-card" hidden>
+      <h2>Ostatni ruch AI</h2>
+      <p id="ai-text"></p>
+    </div>
+
+    <div class="card">
+      <h2>Zapis partii</h2>
+      <p id="history" class="history muted">—</p>
+    </div>
+
+    <div class="card">
+      <h2>Wyniki</h2>
+      <table id="standings">
+        <thead>
+          <tr><th>Gracz</th><th>Partie</th><th title="wygrane-remisy-przegrane">z AI</th>
+              <th title="wygrane-remisy-przegrane">ze znajomymi</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <h3>Ostatnie partie</h3>
+      <ul id="recent" class="recent"></ul>
+    </div>
+  </section>
+</main>
+
+<dialog id="new-dialog">
+  <form method="dialog" id="new-form">
+    <h2>Nowa gra</h2>
+    <label>Twoje imię
+      <input name="name" maxlength="40" required autocomplete="off">
+    </label>
+    <fieldset>
+      <legend>Przeciwnik</legend>
+      <label><input type="radio" name="opponent" value="ai" checked> AI</label>
+      <label><input type="radio" name="opponent" value="human"> znajomy przy tym komputerze</label>
+    </fieldset>
+    <label id="opponent-name-row" hidden>Imię znajomego
+      <input name="opponent_name" maxlength="40" autocomplete="off">
+    </label>
+    <fieldset>
+      <legend>Grasz</legend>
+      <label><input type="radio" name="colour" value="white" checked> białymi (zaczynasz)</label>
+      <label><input type="radio" name="colour" value="black"> czarnymi</label>
+    </fieldset>
+    <label id="strength-row">Siła AI
+      <select name="simulations">
+        <option value="40">szybka (40 symulacji na ruch)</option>
+        <option value="200" selected>normalna (200)</option>
+        <option value="800">mocna (800)</option>
+        <option value="2000">bardzo mocna (2000, wolniej)</option>
+      </select>
+    </label>
+    <div class="buttons">
+      <button type="button" id="new-cancel">Anuluj</button>
+      <button type="submit" class="primary">Graj</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
