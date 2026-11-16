@@ -117,6 +117,8 @@ def test_index_and_static_files_are_served(client):
     assert "warcaby-zero" in client.get("/").text
     assert client.get("/static/app.js").status_code == 200
     assert client.get("/static/style.css").status_code == 200
+    # browsers must not keep an old copy of the page after the code changes
+    assert client.get("/static/app.js").headers["cache-control"] == "no-cache"
     assert client.get("/api/info").json()["size"] == 8
 
 

@@ -67,9 +67,10 @@ main {
 
 .sq-light { fill: var(--square-light); }
 .sq-dark { fill: var(--square-dark); }
-.sq-last { fill: var(--last); }
-.sq-select { fill: none; stroke: var(--select); stroke-width: 7; }
-.target { fill: var(--select); opacity: 0.9; pointer-events: none; }
+/* highlights sit above the squares and must let clicks through to them */
+.sq-last { fill: var(--last); pointer-events: none; }
+.sq-select { fill: none; stroke: var(--select); stroke-width: 7; pointer-events: none; }
+.target { fill: var(--select); stroke: #4a3a10; stroke-width: 3; pointer-events: none; }
 .movable { fill: none; stroke: var(--select); stroke-width: 3.5; opacity: 0.85; pointer-events: none; }
 .coord { font-size: 17px; fill: rgba(0,0,0,.45); pointer-events: none; font-family: system-ui, sans-serif; }
 .piece { transition: transform 170ms ease-in-out, opacity 200ms; cursor: pointer; }

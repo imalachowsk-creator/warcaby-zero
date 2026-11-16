@@ -344,6 +344,11 @@ function onSquare(row, col) {
     : [];
   if (fromSelected.length === 1) return play(fromSelected[0]);
   if (fromSelected.length > 1) return choose(fromSelected);
+  // clicking the piece to be taken also works, when that says which capture is meant
+  const taking = selected
+    ? state.legal.filter((m) => key(...m.path[0]) === selected && m.captures.some((c) => key(...c) === here))
+    : [];
+  if (taking.length === 1) return play(taking[0]);
   const canStart = state.legal.some((m) => key(...m.path[0]) === here);
   selected = canStart && selected !== here ? here : null;
   hideChooser();
@@ -425,6 +430,7 @@ async function newGame(settings) {
   flipped = settings.opponent === "ai" && settings.colour === "black";
   localStorage.setItem("warcaby-settings", JSON.stringify(settings));
   const next = await api("/api/new", { ...settings, analysis: wantAnalysis() });
+  localStorage.setItem("warcaby-game", next.game);
   state = null;
   selected = null;
   hideChooser();
@@ -490,6 +496,18 @@ $("show-analysis").addEventListener("change", async () => {
     ? `model: ${info.model.label}`
     : "Brak wytrenowanej sieci: AI gra samym przeszukiwaniem, bez sieci.";
   renderResults();
+  // reloading the page continues the game in progress, if the server still has it
+  const previous = localStorage.getItem("warcaby-game");
+  if (previous) {
+    try {
+      const resumed = await api(`/api/state?game=${encodeURIComponent(previous)}`);
+      if (!resumed.result) {
+        flipped = resumed.players.white.ai && !resumed.players.black.ai;
+        const needsAnalysis = wantAnalysis() && !resumed.analysis;
+        return await show(needsAnalysis ? await api("/api/analyse", { game: previous }) : resumed);
+      }
+    } catch { /* the server was restarted: start afresh */ }
+  }
   const saved = savedSettings();
   await newGame({
     name: saved.name || "Gość",

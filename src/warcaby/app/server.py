@@ -47,6 +47,13 @@ def create_app(model: Model, store: ResultStore) -> FastAPI:
     # one search at a time: the network is shared by all games
     thinking = threading.Lock()
 
+    @app.middleware("http")
+    async def no_cache(request, call_next):
+        # the page and its script change with the code; never serve a stale copy
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
     def session(game_id: str) -> GameSession:
         if game_id not in sessions:
             raise HTTPException(404, "unknown game")
