@@ -63,7 +63,7 @@ class Config:
     #: every this many iterations (0 = never)
     eval_every: int = 5
     eval_games: int = 20
-    eval_minimax_depths: list[int] = field(default_factory=lambda: [2, 4])
+    eval_minimax_depths: list[int] = field(default_factory=lambda: [2, 4, 6])
 
     seed: int = 0
 
@@ -105,9 +105,27 @@ def quick() -> Config:
     )
 
 
+def laptop() -> Config:
+    """About an hour on an Apple-silicon laptop for a player that beats shallow
+    minimax: a mid-sized network, with the games played on the built-in GPU."""
+    import torch
+
+    return Config(
+        blocks=3,
+        channels=48,
+        simulations=64,
+        games_per_iteration=192,
+        parallel_games=48,
+        workers=4,
+        play_device="mps" if torch.backends.mps.is_available() else "cpu",
+        buffer_size=150_000,
+        eval_every=5,
+    )
+
+
 def kaggle() -> Config:
     """The real run: a free Kaggle GPU session (4 CPU cores, one or two T4s)."""
     return Config()
 
 
-PRESETS = {"quick": quick, "kaggle": kaggle}
+PRESETS = {"quick": quick, "laptop": laptop, "kaggle": kaggle}

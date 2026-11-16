@@ -54,9 +54,10 @@ def atomic_torch_save(obj, path: Path) -> None:
 
 
 class Trainer:
-    def __init__(self, config: Config, run_dir: Path | str, log=print) -> None:
+    def __init__(self, config: Config, run_dir: Path | str, log=None) -> None:
         self.run_dir = Path(run_dir)
-        self.log = log
+        # flush, so progress shows up at once in a notebook or a log file
+        self.log = log or (lambda message: print(message, flush=True))
         (self.run_dir / "generations").mkdir(parents=True, exist_ok=True)
         checkpoint_path = self.run_dir / "checkpoint.pt"
         checkpoint = None
