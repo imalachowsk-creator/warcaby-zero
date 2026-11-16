@@ -77,6 +77,21 @@ class Game(ABC):
         """
         return [(observation, policy)]
 
+    # --- hooks for hand-written opponents ------------------------------------------
+
+    def heuristic(self, state: State) -> float:
+        """A cheap hand-written evaluation in (-1, 1), seen by the player to move.
+
+        Only the minimax baseline uses it. The learning agent never does: it has
+        to discover what a good position is on its own.
+        """
+        return 0.0
+
+    def is_quiet(self, state: State) -> bool:
+        """``False`` when a heuristic evaluation here would be misleading, e.g. in
+        the middle of an exchange. Minimax searches on from such positions."""
+        return True
+
     # --- convenience -------------------------------------------------------------
 
     @abstractmethod
