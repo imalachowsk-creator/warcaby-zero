@@ -25,6 +25,7 @@
   <section class="side">
     <div class="card" id="status-card">
       <div id="status" class="status" aria-live="polite">Wczytywanie…</div>
+      <p id="notice" class="notice" role="alert" hidden></p>
       <div class="buttons">
         <button id="new-game" class="primary">Nowa gra</button>
         <button id="resign">Poddaj partię</button>
@@ -82,6 +83,16 @@
     </div>
   </section>
 </main>
+
+<dialog id="ask-dialog">
+  <form method="dialog">
+    <p id="ask-text"></p>
+    <div class="buttons">
+      <button value="no">Anuluj</button>
+      <button value="yes" class="primary" id="ask-yes">Tak</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="new-dialog">
   <form method="dialog" id="new-form">

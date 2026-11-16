@@ -42,6 +42,24 @@ async function api(path, body) {
 
 const wantAnalysis = () => $("show-analysis").checked;
 
+// The page asks and reports with its own elements. Built-in confirm() and alert()
+// windows are not shown by every browser (embedded panes drop them silently).
+function ask(text, yesLabel) {
+  const box = $("ask-dialog");
+  $("ask-text").textContent = text;
+  $("ask-yes").textContent = yesLabel;
+  box.returnValue = "no";
+  return new Promise((resolve) => {
+    box.addEventListener("close", () => resolve(box.returnValue === "yes"), { once: true });
+    box.showModal();
+  });
+}
+
+function notify(text) {
+  $("notice").textContent = text;
+  $("notice").hidden = !text;
+}
+
 // --- drawing ------------------------------------------------------------------------
 
 function el(name, attrs = {}, parent = null) {
@@ -338,6 +356,7 @@ async function renderResults() {
 
 function onSquare(row, col) {
   if (!state || busy || state.result) return;
+  notify("");
   const here = key(row, col);
   const fromSelected = selected
     ? state.legal.filter((m) => key(...m.path[0]) === selected && key(...m.path[m.path.length - 1]) === here)
@@ -390,7 +409,7 @@ async function play(move) {
     await show(next);
   } catch (error) {
     busy = false;
-    alert(error.message);
+    notify(`Nie udało się wykonać ruchu: ${error.message}`);
     await show(await api(`/api/state?game=${state.game}`));
   }
 }
@@ -425,6 +444,7 @@ async function show(next) {
 
 async function newGame(settings) {
   busy = true;
+  notify("");
   if (state) renderStatus();
   // against the AI the human sits at the bottom; two humans keep White at the bottom
   flipped = settings.opponent === "ai" && settings.colour === "black";
@@ -471,12 +491,21 @@ form.addEventListener("submit", () => {
     opponent_name: form.opponent_name.value.trim() || "Znajomy",
     colour: form.colour.value,
     simulations: Number(form.simulations.value),
-  }).catch((error) => alert(error.message));
+  }).catch((error) => {
+    busy = false;
+    notify(`Nie udało się zacząć gry: ${error.message}`);
+    if (state) renderStatus();
+  });
 });
 
 $("resign").addEventListener("click", async () => {
-  if (!state || state.result || !confirm("Poddać partię?")) return;
-  await show(await api("/api/resign", { game: state.game }));
+  if (!state || state.result) return;
+  if (!(await ask("Poddać partię? Zostanie zapisana jako przegrana.", "Poddaj"))) return;
+  try {
+    await show(await api("/api/resign", { game: state.game }));
+  } catch (error) {
+    notify(`Nie udało się poddać partii: ${error.message}`);
+  }
 });
 
 $("show-analysis").addEventListener("change", async () => {
