@@ -25,7 +25,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args(argv)
 
-    library = ModelLibrary.for_path(args.model, args.runs, args.device)
+    runs = args.runs
+    if args.model is None and not any(runs.glob("*/generations/gen_*.pt")):
+        # nothing trained here yet: use the network that ships with the repository
+        runs = Path(__file__).resolve().parents[3] / "models"
+    library = ModelLibrary.for_path(args.model, runs, args.device)
     model = library.get()
     if model.trained:
         print(f"default model: {model.label} ({len(library.entries())} generations to choose from)")

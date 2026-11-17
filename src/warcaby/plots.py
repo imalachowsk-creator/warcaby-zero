@@ -107,8 +107,11 @@ def plot_baselines(metrics: list[dict], path: Path) -> Path | None:
     _percent_axis(ax)
     ax.legend(
         frameon=False, fontsize=9, labelcolor=INK_SECONDARY, ncols=4,
-        loc="lower right", bbox_to_anchor=(1.0, 1.0), borderaxespad=0.2,
+        loc="lower left", bbox_to_anchor=(0.0, 1.0), borderaxespad=0.3,
     )  # fmt: skip
+    # the legend sits in its own row between the title and the plot
+    ax.title.set_position((0, 1.0))
+    ax.set_title(ax.get_title(loc="left"), loc="left", fontsize=11, color=INK, pad=30)
     return _save(fig, path)
 
 
@@ -137,8 +140,11 @@ def plot_arena(metrics: list[dict], path: Path, accept_score: float = 0.55) -> P
     _percent_axis(ax)
     ax.legend(
         frameon=False, fontsize=9, labelcolor=INK_SECONDARY, ncols=2,
-        loc="lower right", bbox_to_anchor=(1.0, 1.0), borderaxespad=0.2,
+        loc="lower left", bbox_to_anchor=(0.0, 1.0), borderaxespad=0.3,
     )  # fmt: skip
+    # the legend sits in its own row between the title and the plot
+    ax.title.set_position((0, 1.0))
+    ax.set_title(ax.get_title(loc="left"), loc="left", fontsize=11, color=INK, pad=30)
     return _save(fig, path)
 
 
