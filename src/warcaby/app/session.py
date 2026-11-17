@@ -53,6 +53,100 @@ def load_model(path: Path | None, device: str = "cpu") -> Model:
     return Model(game, NetEvaluator(game, net, device), label, trained=True)
 
 
+class ModelLibrary:
+    """Every saved generation under a runs directory, loaded when first used.
+
+    A model is named ``"<run>/<generation>"``, e.g. ``"laptop/12"``. The
+    directory is read again on every call, so generations saved by a training
+    run that is still going show up without restarting the app.
+    """
+
+    def __init__(
+        self,
+        runs_dir: Path,
+        default_run: str | None = None,
+        default_id: str | None = None,
+        device: str = "cpu",
+    ) -> None:
+        self.runs_dir = Path(runs_dir)
+        self.default_run = default_run
+        self._pinned = default_id
+        self.device = device
+        self._loaded: dict[tuple[str, float], Model] = {}
+        self._fallback: Model | None = None
+
+    @classmethod
+    def for_path(cls, path: Path | None, runs_dir: Path, device: str = "cpu") -> ModelLibrary:
+        """``path`` may be a generation file (always the default), a run directory
+        (its newest generation is the default) or ``None`` (the newest of all)."""
+        if path is None:
+            return cls(runs_dir, device=device)
+        path = Path(path)
+        if path.is_dir():
+            return cls(path.parent, default_run=path.name, device=device)
+        run_dir = path.parent.parent
+        generation = int(path.stem.split("_")[1])
+        return cls(run_dir.parent, default_id=f"{run_dir.name}/{generation}", device=device)
+
+    def _files(self) -> dict[str, Path]:
+        files = {}
+        for path in sorted(self.runs_dir.glob("*/generations/gen_*.pt")):
+            run = path.parent.parent.name
+            files[f"{run}/{int(path.stem.split('_')[1])}"] = path
+        return files
+
+    def entries(self) -> list[dict]:
+        """All models, newest generation first within each run."""
+        listed = []
+        for model_id in self._files():
+            run, generation = model_id.rsplit("/", 1)
+            listed.append({"id": model_id, "run": run, "generation": int(generation)})
+        return sorted(listed, key=lambda entry: (entry["run"], -entry["generation"]))
+
+    def default_id(self) -> str | None:
+        files = self._files()
+        if self._pinned in files:
+            return self._pinned
+        if self.default_run:
+            files = {k: v for k, v in files.items() if k.startswith(self.default_run + "/")}
+        if not files:
+            return None
+        return max(files, key=lambda model_id: files[model_id].stat().st_mtime)
+
+    def get(self, model_id: str | None = None) -> Model:
+        """The model with this name; ``None`` means the default one."""
+        files = self._files()
+        model_id = model_id or self.default_id()
+        if model_id is None:
+            if self._fallback is None:
+                self._fallback = load_model(None)
+            return self._fallback
+        if model_id not in files:
+            raise KeyError(model_id)
+        key = (model_id, files[model_id].stat().st_mtime)
+        if key not in self._loaded:
+            self._loaded[key] = load_model(files[model_id], self.device)
+        return self._loaded[key]
+
+
+class FixedLibrary:
+    """A library with exactly one model (used by tests)."""
+
+    def __init__(self, model: Model) -> None:
+        self.model = model
+
+    def entries(self) -> list[dict]:
+        return []
+
+    def default_id(self) -> str | None:
+        return None
+
+    def get(self, model_id: str | None = None) -> Model:
+        if model_id is not None:
+            raise KeyError(model_id)
+        return self.model
+
+
 class GameSession:
     """A game between two seats, each a human or the AI."""
 
@@ -223,4 +317,7 @@ class GameSession:
         }
 
 
-__all__ = ["BLACK", "WHITE", "GameSession", "Model", "find_newest_generation", "load_model"]
+__all__ = [
+    "BLACK", "WHITE", "FixedLibrary", "GameSession", "Model", "ModelLibrary",
+    "find_newest_generation", "load_model",
+]  # fmt: skip

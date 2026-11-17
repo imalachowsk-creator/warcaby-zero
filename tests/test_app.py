@@ -5,7 +5,7 @@ import torch
 from fastapi.testclient import TestClient
 
 from warcaby.app.server import create_app
-from warcaby.app.session import GameSession, Model, load_model
+from warcaby.app.session import GameSession, Model, ModelLibrary, load_model
 from warcaby.app.storage import ResultStore
 from warcaby.draughts import Draughts
 from warcaby.evaluators import UniformEvaluator
@@ -108,6 +108,75 @@ def test_load_model_from_a_generation_file(tmp_path):
         assert model.trained and model.label == "myrun gen 3"
         assert model.game.size == 8
     assert not load_model(None).trained
+
+
+def save_generation(runs, run: str, generation: int, seed: int = 0):
+    game = Draughts(8)
+    torch.manual_seed(seed)
+    net = PolicyValueNet.for_game(game, NetConfig(blocks=1, channels=8))
+    folder = runs / run / "generations"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"gen_{generation:04d}.pt"
+    torch.save({"game": game.name, "generation": generation, "iteration": 0, "net": net.export()},
+               path)  # fmt: skip
+    return path
+
+
+def test_library_lists_generations_and_picks_the_newest(tmp_path):
+    runs = tmp_path / "runs"
+    library = ModelLibrary(runs)
+    assert library.entries() == [] and library.default_id() is None
+    assert not library.get().trained  # nothing trained yet: plain search
+
+    for generation in (0, 1, 2):
+        save_generation(runs, "laptop", generation)
+    assert [entry["id"] for entry in library.entries()] == ["laptop/2", "laptop/1", "laptop/0"]
+    assert library.default_id() == "laptop/2"
+    assert library.get().label == "laptop gen 2"
+    assert library.get("laptop/0").label == "laptop gen 0"
+    assert library.get("laptop/0") is library.get("laptop/0")  # loaded once
+    with pytest.raises(KeyError):
+        library.get("laptop/7")
+    with pytest.raises(KeyError):
+        library.get("../secret")
+
+    # a generation saved while the app is running is picked up
+    save_generation(runs, "laptop", 3)
+    assert library.default_id() == "laptop/3"
+
+
+def test_library_default_follows_the_model_argument(tmp_path):
+    runs = tmp_path / "runs"
+    old = save_generation(runs, "first", 4)
+    save_generation(runs, "second", 1)
+    assert ModelLibrary.for_path(None, runs).default_id() == "second/1"  # newest file
+    assert ModelLibrary.for_path(runs / "first", runs).default_id() == "first/4"
+    pinned = ModelLibrary.for_path(old, runs)
+    save_generation(runs, "first", 5)
+    assert pinned.default_id() == "first/4"
+    assert ModelLibrary.for_path(runs / "first", runs).default_id() == "first/5"
+    assert len(pinned.entries()) == 3
+
+
+def test_a_game_can_be_played_against_a_chosen_generation(tmp_path):
+    runs = tmp_path / "runs"
+    for generation in (0, 1):
+        save_generation(runs, "laptop", generation, seed=generation)
+    store = ResultStore(tmp_path / "games.db")
+    with TestClient(create_app(ModelLibrary(runs), store)) as client:
+        info = client.get("/api/info").json()
+        assert info["default"] == "laptop/1"
+        assert [model["id"] for model in info["models"]] == ["laptop/1", "laptop/0"]
+
+        newest = new_game(client)
+        assert newest["model"] == {"label": "laptop gen 1", "trained": True}
+        chosen = new_game(client, model="laptop/0")
+        assert chosen["model"]["label"] == "laptop gen 0"
+        assert client.post("/api/new", json={"model": "laptop/9"}).status_code == 422
+
+        client.post("/api/move", json={"game": chosen["game"], "move": 0})
+        client.post("/api/resign", json={"game": chosen["game"]})
+        assert store.recent(1)[0]["model"] == "laptop gen 0"
 
 
 # --- HTTP ----------------------------------------------------------------------------

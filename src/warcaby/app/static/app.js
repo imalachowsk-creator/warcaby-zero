@@ -437,6 +437,9 @@ async function show(next) {
   state = next;
   busy = false;
   if (firstDraw) drawBoard();
+  $("model-label").textContent = state.model.trained
+    ? `model: ${state.model.label}`
+    : "Brak wytrenowanej sieci: AI gra samym przeszukiwaniem, bez sieci.";
   drawPieces(state.pieces);
   render();
   if (state.result && !wasOver) renderResults();
@@ -472,8 +475,26 @@ function syncDialog() {
   $("strength-row").hidden = human;
 }
 
-$("new-game").addEventListener("click", () => {
+// Fill the list of generations; the server reads the folder anew each time, so
+// generations saved by a training run that is still going appear here too.
+async function fillModels(chosen) {
+  const info = await api("/api/info").catch(() => ({}));
+  const models = info.models || [];
+  const select = form.model;
+  select.replaceChildren();
+  const severalRuns = new Set(models.map((m) => m.run)).size > 1;
+  const describe = (m) =>
+    `${severalRuns ? `${m.run} · ` : ""}generacja ${m.generation}${m.generation === 0 ? " (niewytrenowana)" : ""}`;
+  const newest = models.find((m) => m.id === info.default);
+  const first = new Option(newest ? `najnowsza (${describe(newest)})` : "najnowsza", "");
+  select.append(first, ...models.map((m) => new Option(describe(m), m.id)));
+  select.value = models.some((m) => m.id === chosen) ? chosen : "";
+  $("model-row").hidden = models.length === 0;
+}
+
+$("new-game").addEventListener("click", async () => {
   const saved = savedSettings();
+  await fillModels(saved.model);
   form.name.value = saved.name || "";
   form.opponent_name.value = saved.opponent_name || "";
   form.opponent.value = saved.opponent || "ai";
@@ -491,6 +512,7 @@ form.addEventListener("submit", () => {
     opponent_name: form.opponent_name.value.trim() || "Znajomy",
     colour: form.colour.value,
     simulations: Number(form.simulations.value),
+    model: form.model.value || null,
   }).catch((error) => {
     busy = false;
     notify(`Nie udało się zacząć gry: ${error.message}`);
@@ -521,9 +543,7 @@ $("show-analysis").addEventListener("change", async () => {
 
 (async function start() {
   const info = await api("/api/info");
-  $("model-label").textContent = info.model.trained
-    ? `model: ${info.model.label}`
-    : "Brak wytrenowanej sieci: AI gra samym przeszukiwaniem, bez sieci.";
+  const known = new Set((info.models || []).map((m) => m.id));
   renderResults();
   // reloading the page continues the game in progress, if the server still has it
   const previous = localStorage.getItem("warcaby-game");
@@ -544,5 +564,7 @@ $("show-analysis").addEventListener("change", async () => {
     opponent_name: saved.opponent_name || "Znajomy",
     colour: saved.colour || "white",
     simulations: saved.simulations || 200,
+    // a generation chosen earlier is kept, unless its file is gone
+    model: known.has(saved.model) ? saved.model : null,
   });
 })();

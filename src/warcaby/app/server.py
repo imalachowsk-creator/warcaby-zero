@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .session import GameSession, Model
+from .session import FixedLibrary, GameSession, Model, ModelLibrary
 from .storage import ResultStore
 
 STATIC = Path(__file__).parent / "static"
@@ -27,6 +27,8 @@ class NewGame(BaseModel):
     #: the second human's name when ``opponent`` is "human"
     opponent_name: str = Field(default="Znajomy", max_length=40)
     simulations: int = Field(default=200, ge=2, le=5000)
+    #: which network plays and analyses, e.g. "laptop/12"; ``None`` = the newest
+    model: str | None = None
     analysis: bool = True
 
 
@@ -41,7 +43,8 @@ class GameRequest(BaseModel):
     analysis: bool = True
 
 
-def create_app(model: Model, store: ResultStore) -> FastAPI:
+def create_app(models: ModelLibrary | FixedLibrary | Model, store: ResultStore) -> FastAPI:
+    library = FixedLibrary(models) if isinstance(models, Model) else models
     app = FastAPI(title="warcaby-zero")
     sessions: dict[str, GameSession] = {}
     # one search at a time: the network is shared by all games
@@ -76,7 +79,7 @@ def create_app(model: Model, store: ResultStore) -> FastAPI:
                 winner=result["winner"],
                 reason=result["reason"],
                 moves=[current.game.move_name(move) for move in current.history],
-                model=model.label if any(current.ai_seats) else None,
+                model=current.model.label if any(current.ai_seats) else None,
                 simulations=current.simulations if any(current.ai_seats) else None,
             )
         return current.to_dict()
@@ -87,7 +90,14 @@ def create_app(model: Model, store: ResultStore) -> FastAPI:
 
     @app.get("/api/info")
     def info() -> dict:
-        return {"model": {"label": model.label, "trained": model.trained}, "size": model.game.size}
+        default = library.get()
+        return {
+            "model": {"label": default.label, "trained": default.trained},
+            "size": default.game.size,
+            # every generation that can be chosen in the new-game dialog
+            "models": library.entries(),
+            "default": library.default_id(),
+        }
 
     @app.post("/api/new")
     def new_game(request: NewGame) -> dict:
@@ -100,6 +110,10 @@ def create_app(model: Model, store: ResultStore) -> FastAPI:
         else:
             other, ai_seats = request.opponent_name.strip() or "Znajomy", (False, False)
         white, black = (name, other) if human_is_white else (other, name)
+        try:
+            model = library.get(request.model)
+        except KeyError:
+            raise HTTPException(422, f"unknown model {request.model!r}") from None
         current = GameSession(
             uuid.uuid4().hex[:12], model, white, black, ai_seats, request.simulations
         )

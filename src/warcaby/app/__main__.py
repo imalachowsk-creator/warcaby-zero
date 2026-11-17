@@ -8,7 +8,7 @@ from pathlib import Path
 import uvicorn
 
 from .server import create_app
-from .session import find_newest_generation, load_model
+from .session import ModelLibrary
 from .storage import ResultStore
 
 
@@ -25,13 +25,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args(argv)
 
-    path = args.model or find_newest_generation(args.runs)
-    model = load_model(path, args.device)
+    library = ModelLibrary.for_path(args.model, args.runs, args.device)
+    model = library.get()
     if model.trained:
-        print(f"model: {model.label} ({path})")
+        print(f"default model: {model.label} ({len(library.entries())} generations to choose from)")
     else:
         print("no trained network found in runs/ - playing with plain search, without a network")
-    app = create_app(model, ResultStore(args.results))
+    app = create_app(library, ResultStore(args.results))
     print(f"open http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
 
