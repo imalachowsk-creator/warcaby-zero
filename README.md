@@ -8,6 +8,62 @@ book, no hand-written evaluation.
 ![A game played by the trained network](docs/game.gif)
 
 <!-- RESULTS -->
+## Results
+
+A first run on a laptop (MacBook Air M4, self-play on its built-in GPU): **41
+iterations in 68 minutes**, 7,872 self-play games, 571,592 training positions.
+The network is small (3 residual blocks of 48 channels, 658k parameters) and searches 64
+simulations per move. 21 of the 41 candidates were good enough to replace the best network.
+
+![Elo by generation](docs/elo.png)
+
+Elo from a round-robin tournament: 8 generations spread over the run, random play and
+minimax with alpha-beta at depths 2, 4 and 6, 20 games per pairing with colours alternating. Random play is fixed at 0. With 20 games per pairing
+a rating is good to roughly ±100 points.
+
+| player | Elo | vs random | vs minimax2 | vs minimax4 | vs minimax6 |
+|---|---:|---|---|---|---|
+| minimax6 | 916 | +20 =0 -0 | +20 =0 -0 | +15 =4 -1 | - |
+| gen21 | 849 | +20 =0 -0 | +16 =3 -1 | +9 =8 -3 | +2 =5 -13 |
+| gen18 | 845 | +20 =0 -0 | +12 =7 -1 | +7 =7 -6 | +7 =5 -8 |
+| gen15 | 749 | +20 =0 -0 | +16 =3 -1 | +4 =8 -8 | +3 =5 -12 |
+| minimax4 | 745 | +20 =0 -0 | +16 =2 -2 | - | +1 =4 -15 |
+| gen12 | 692 | +20 =0 -0 | +15 =3 -2 | +7 =3 -10 | +1 =4 -15 |
+| gen9 | 657 | +20 =0 -0 | +13 =4 -3 | +9 =2 -9 | +5 =3 -12 |
+| gen6 | 524 | +20 =0 -0 | +7 =7 -6 | +2 =4 -14 | +2 =4 -14 |
+| minimax2 | 476 | +20 =0 -0 | - | +2 =2 -16 | +0 =0 -20 |
+| gen3 | 406 | +20 =0 -0 | +8 =6 -6 | +0 =3 -17 | +0 =0 -20 |
+| random | 0 | - | +0 =0 -20 | +0 =0 -20 | +0 =0 -20 |
+| gen0 | -69 | +7 =0 -13 | +0 =0 -20 | +0 =0 -20 | +0 =0 -20 |
+
+The untrained generation 0 is worse than random play: the search follows a network that points
+the wrong way. Three generations later, after a few minutes of training, it wins every game
+against random play and edges out minimax at depth 2 head to head (+8 =6 -6). By the end,
+gen21 is rated 849, between minimax at depth 4 (745) and depth 6 (916). The minimax opponents count material, extend the search through
+pending captures and look at every move; the network was never shown how to evaluate a position.
+
+![Score against fixed opponents during training](docs/baselines.png)
+
+Scores of the best network measured during training, 20 games each. At iteration 40: random
+100%, minimax-2 85%, minimax-4 55%, minimax-6 18%.
+
+<details>
+<summary>Losses, self-play statistics and arena results</summary>
+
+![Training curves](docs/training.png)
+
+![Arena](docs/arena.png)
+
+The policy loss flattens after a few iterations while the value loss keeps falling. A likely
+reason: the policy target is the search's own output, which sharpens as the network improves, so
+the target moves along with the network. Self-play games get longer and end in a draw more often
+(from 15–20% early on to about 25%), which fits both sides making fewer outright blunders.
+
+</details>
+
+This is an hour on a laptop. The [Kaggle notebook](#training-on-a-free-kaggle-gpu) runs the
+default configuration (6 blocks of 64 channels, 100 simulations, 400 games per iteration) for
+11 hours per session and is where a strong player should come from; its results are not in yet.
 
 ## How it works
 
